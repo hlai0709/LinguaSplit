@@ -54,8 +54,9 @@ Preferred communication style: Simple, everyday language.
 
 **Storage Architecture:**
 - Interface-based storage layer (`IStorage`) allows switching between implementations
-- `MemStorage` provides in-memory persistence for development
-- Database-backed storage uses Drizzle ORM with PostgreSQL
+- `DbStorage` class provides persistent database storage using Drizzle ORM with PostgreSQL (Neon serverless)
+- Automatically switches between DbStorage and MemStorage based on DATABASE_URL environment variable
+- All tutoring sessions, game sessions, and achievements persist across page refreshes and server restarts
 - Default session pattern ensures single-user experience without authentication
 
 **Problem Generation Logic:**

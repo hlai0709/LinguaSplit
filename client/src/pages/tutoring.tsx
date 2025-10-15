@@ -17,8 +17,8 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
 const sessionFormSchema = insertTutoringSessionSchema.extend({
-  date: z.string(),
-  topicsCovered: z.string().transform(val => val.split(',').map(t => t.trim()).filter(Boolean)),
+  date: z.string().min(1, "Date is required"),
+  topicsCovered: z.string().min(1, "Topics are required"),
 });
 
 type SessionFormData = z.infer<typeof sessionFormSchema>;
@@ -50,6 +50,7 @@ export default function Tutoring() {
       const response = await apiRequest("POST", "/api/tutoring-sessions", {
         ...data,
         date: new Date(data.date),
+        topicsCovered: data.topicsCovered.split(',').map(t => t.trim()).filter(Boolean),
       });
       return await response.json();
     },
@@ -69,6 +70,7 @@ export default function Tutoring() {
       const response = await apiRequest("PATCH", `/api/tutoring-sessions/${id}`, {
         ...data,
         date: data.date ? new Date(data.date) : undefined,
+        topicsCovered: data.topicsCovered ? data.topicsCovered.split(',').map(t => t.trim()).filter(Boolean) : undefined,
       });
       return await response.json();
     },
@@ -178,7 +180,11 @@ export default function Tutoring() {
                             <Input
                               type="number"
                               {...field}
-                              onChange={(e) => field.onChange(parseInt(e.target.value))}
+                              value={field.value || ""}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                field.onChange(val === "" ? "" : parseInt(val) || "");
+                              }}
                               data-testid="input-week-number"
                             />
                           </FormControl>
@@ -240,7 +246,11 @@ export default function Tutoring() {
                             <Input
                               type="number"
                               {...field}
-                              onChange={(e) => field.onChange(parseInt(e.target.value))}
+                              value={field.value || ""}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                field.onChange(val === "" ? "" : parseInt(val) || "");
+                              }}
                               data-testid="input-duration"
                             />
                           </FormControl>

@@ -39,6 +39,19 @@ export const achievements = pgTable("achievements", {
   unlockedAt: timestamp("unlocked_at").defaultNow(),
 });
 
+export const tutoringSessions = pgTable("tutoring_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  weekNumber: integer("week_number").notNull(),
+  date: timestamp("date").notNull(),
+  studentName: text("student_name").notNull(),
+  topicsCovered: text("topics_covered").array().notNull(),
+  notes: text("notes"),
+  duration: integer("duration").notNull(), // in minutes
+  status: text("status").notNull().default("scheduled"), // scheduled, completed, cancelled
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const insertGameProblemSchema = createInsertSchema(gameProblems).omit({
   id: true,
   createdAt: true,
@@ -55,9 +68,17 @@ export const insertAchievementSchema = createInsertSchema(achievements).omit({
   unlockedAt: true,
 });
 
+export const insertTutoringSessionSchema = createInsertSchema(tutoringSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export type GameProblem = typeof gameProblems.$inferSelect;
 export type InsertGameProblem = z.infer<typeof insertGameProblemSchema>;
 export type GameSession = typeof gameSessions.$inferSelect;
 export type InsertGameSession = z.infer<typeof insertGameSessionSchema>;
 export type Achievement = typeof achievements.$inferSelect;
 export type InsertAchievement = z.infer<typeof insertAchievementSchema>;
+export type TutoringSession = typeof tutoringSessions.$inferSelect;
+export type InsertTutoringSession = z.infer<typeof insertTutoringSessionSchema>;

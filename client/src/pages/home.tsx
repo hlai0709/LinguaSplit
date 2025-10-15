@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { Sparkles, Trophy, Users, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import heroImage from "@assets/stock_images/children_learning_ed_0649f05f.jpg";
+import heroImage from "@assets/stock_images/diverse_children_stu_562f3eb6.jpg";
 import mathImage from "@assets/stock_images/mathematics_numbers__3eb407d2.jpg";
 import readingImage from "@assets/stock_images/books_reading_librar_d1be10ed.jpg";
 import scienceImage from "@assets/stock_images/science_laboratory_b_ba51ddc7.jpg";

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -26,7 +26,7 @@
   --border: hsl(214, 32%, 91%);
   --input: hsl(214, 32%, 91%);
   --ring: hsl(262, 83%, 58%);
-  --font-display: Nunito, sans-serif;
+  --font-display: Fredoka, sans-serif;
   --font-sans: Inter, sans-serif;
   --radius: 1rem;
 }

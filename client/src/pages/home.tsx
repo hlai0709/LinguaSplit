@@ -142,35 +142,35 @@ export default function Home() {
           </div>
           <div className="grid md:grid-cols-3 gap-8">
             {minigames.map((game) => (
-              <Link key={game.title} href={game.path}>
-                <a
-                  className={`block bg-card rounded-2xl overflow-hidden border border-border shadow-lg hover:shadow-2xl transform hover:-translate-y-1 transition-all ${
-                    game.comingSoon ? "opacity-80" : ""
-                  }`}
-                  data-testid={`card-game-${game.title.toLowerCase().replace(/\s+/g, '-')}`}
-                >
-                  <div className="relative h-48 overflow-hidden">
-                    <div className={`absolute inset-0 bg-gradient-to-br ${game.color} opacity-60`}></div>
-                    <img
-                      src={game.image}
-                      alt={game.title}
-                      className="w-full h-full object-cover"
-                    />
-                    {game.comingSoon && (
-                      <div className="absolute top-4 right-4 bg-accent text-accent-foreground px-3 py-1 rounded-full text-sm font-medium">
-                        Coming Soon
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-6">
-                    <h3 className="text-2xl font-display font-semibold text-foreground mb-2">
-                      {game.title}
-                    </h3>
-                    <p className="text-muted-foreground">
-                      {game.description}
-                    </p>
-                  </div>
-                </a>
+              <Link
+                key={game.title}
+                href={game.path}
+                className={`block bg-card rounded-2xl overflow-hidden border border-border shadow-lg hover:shadow-2xl transform hover:-translate-y-1 transition-all ${
+                  game.comingSoon ? "opacity-80" : ""
+                }`}
+                data-testid={`card-game-${game.title.toLowerCase().replace(/\s+/g, '-')}`}
+              >
+                <div className="relative h-48 overflow-hidden">
+                  <div className={`absolute inset-0 bg-gradient-to-br ${game.color} opacity-60`}></div>
+                  <img
+                    src={game.image}
+                    alt={game.title}
+                    className="w-full h-full object-cover"
+                  />
+                  {game.comingSoon && (
+                    <div className="absolute top-4 right-4 bg-accent text-accent-foreground px-3 py-1 rounded-full text-sm font-medium">
+                      Coming Soon
+                    </div>
+                  )}
+                </div>
+                <div className="p-6">
+                  <h3 className="text-2xl font-display font-semibold text-foreground mb-2">
+                    {game.title}
+                  </h3>
+                  <p className="text-muted-foreground">
+                    {game.description}
+                  </p>
+                </div>
               </Link>
             ))}
           </div>

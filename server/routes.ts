@@ -200,7 +200,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/tutoring-sessions", async (req, res) => {
     try {
-      const validatedData = insertTutoringSessionSchema.parse(req.body);
+      const data = {
+        ...req.body,
+        date: req.body.date ? new Date(req.body.date) : undefined,
+      };
+      const validatedData = insertTutoringSessionSchema.parse(data);
       const session = await storage.createTutoringSession(validatedData);
       res.status(201).json(session);
     } catch (error) {
@@ -210,7 +214,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/tutoring-sessions/:id", async (req, res) => {
     try {
-      const session = await storage.updateTutoringSession(req.params.id, req.body);
+      const data = {
+        ...req.body,
+        date: req.body.date ? new Date(req.body.date) : undefined,
+      };
+      const session = await storage.updateTutoringSession(req.params.id, data);
       if (!session) {
         return res.status(404).json({ message: "Tutoring session not found" });
       }

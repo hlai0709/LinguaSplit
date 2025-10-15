@@ -8,6 +8,8 @@ import Home from "@/pages/home";
 import Games from "@/pages/games";
 import Tutoring from "@/pages/tutoring";
 import Game from "@/pages/game";
+import ReadingQuest from "@/pages/reading-quest";
+import ScienceLab from "@/pages/science-lab";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -19,6 +21,8 @@ function Router() {
         <Route path="/games" component={Games} />
         <Route path="/tutoring" component={Tutoring} />
         <Route path="/game/multiplication" component={Game} />
+        <Route path="/game/reading-quest" component={ReadingQuest} />
+        <Route path="/game/science-lab" component={ScienceLab} />
         <Route component={NotFound} />
       </Switch>
     </>

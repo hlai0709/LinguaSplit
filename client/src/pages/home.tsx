@@ -38,19 +38,17 @@ export default function Home() {
     },
     {
       title: "Reading Quest",
-      description: "Coming soon: Adventure through stories",
+      description: "Build vocabulary with word definitions",
       image: readingImage,
-      path: "#",
+      path: "/game/reading-quest",
       color: "from-pink-500 to-rose-600",
-      comingSoon: true,
     },
     {
       title: "Science Lab",
-      description: "Coming soon: Explore experiments",
+      description: "Test your science knowledge with trivia",
       image: scienceImage,
-      path: "#",
+      path: "/game/science-lab",
       color: "from-green-500 to-emerald-600",
-      comingSoon: true,
     },
   ];
 

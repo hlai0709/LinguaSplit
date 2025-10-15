@@ -51,6 +51,7 @@ export default function Tutoring() {
         ...data,
         date: new Date(data.date),
         topicsCovered: data.topicsCovered.split(',').map(t => t.trim()).filter(Boolean),
+        notes: data.notes || null,
       });
       return await response.json();
     },
@@ -71,6 +72,7 @@ export default function Tutoring() {
         ...data,
         date: data.date ? new Date(data.date) : undefined,
         topicsCovered: data.topicsCovered ? data.topicsCovered.split(',').map(t => t.trim()).filter(Boolean) : undefined,
+        notes: data.notes || null,
       });
       return await response.json();
     },

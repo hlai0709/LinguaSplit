@@ -204,11 +204,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...req.body,
         date: req.body.date ? new Date(req.body.date) : undefined,
       };
+      console.log("Received data:", JSON.stringify(req.body, null, 2));
+      console.log("Transformed data:", JSON.stringify(data, null, 2));
       const validatedData = insertTutoringSessionSchema.parse(data);
       const session = await storage.createTutoringSession(validatedData);
       res.status(201).json(session);
     } catch (error) {
-      res.status(400).json({ message: "Invalid tutoring session data" });
+      console.error("Validation error:", error);
+      res.status(400).json({ message: "Invalid tutoring session data", error: error instanceof Error ? error.message : String(error) });
     }
   });
 

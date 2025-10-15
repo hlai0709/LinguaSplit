@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertGameSessionSchema } from "@shared/schema";
+import { insertGameSessionSchema, insertTutoringSessionSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Generate a new multiplication problem
@@ -175,6 +175,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     return newAchievements;
   }
+
+  // Tutoring session routes
+  app.get("/api/tutoring-sessions", async (req, res) => {
+    try {
+      const sessions = await storage.getAllTutoringSessions();
+      res.json(sessions);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch tutoring sessions" });
+    }
+  });
+
+  app.get("/api/tutoring-sessions/:id", async (req, res) => {
+    try {
+      const session = await storage.getTutoringSession(req.params.id);
+      if (!session) {
+        return res.status(404).json({ message: "Tutoring session not found" });
+      }
+      res.json(session);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch tutoring session" });
+    }
+  });
+
+  app.post("/api/tutoring-sessions", async (req, res) => {
+    try {
+      const validatedData = insertTutoringSessionSchema.parse(req.body);
+      const session = await storage.createTutoringSession(validatedData);
+      res.status(201).json(session);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid tutoring session data" });
+    }
+  });
+
+  app.patch("/api/tutoring-sessions/:id", async (req, res) => {
+    try {
+      const session = await storage.updateTutoringSession(req.params.id, req.body);
+      if (!session) {
+        return res.status(404).json({ message: "Tutoring session not found" });
+      }
+      res.json(session);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update tutoring session" });
+    }
+  });
+
+  app.delete("/api/tutoring-sessions/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteTutoringSession(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Tutoring session not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete tutoring session" });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;

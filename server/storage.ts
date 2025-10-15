@@ -1,5 +1,8 @@
-import { type GameProblem, type InsertGameProblem, type GameSession, type InsertGameSession, type Achievement, type InsertAchievement, type TutoringSession, type InsertTutoringSession } from "@shared/schema";
+import { type GameProblem, type InsertGameProblem, type GameSession, type InsertGameSession, type Achievement, type InsertAchievement, type TutoringSession, type InsertTutoringSession, gameProblems, gameSessions, achievements, tutoringSessions } from "@shared/schema";
 import { randomUUID } from "crypto";
+import { neon } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/neon-http";
+import { eq, desc } from "drizzle-orm";
 
 export interface IStorage {
   // Game Problems
@@ -181,4 +184,100 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export class DbStorage implements IStorage {
+  private db;
+  private defaultSessionId: string = "default-session";
+
+  constructor() {
+    const sql = neon(process.env.DATABASE_URL!);
+    this.db = drizzle(sql);
+  }
+
+  async createGameProblem(insertProblem: InsertGameProblem): Promise<GameProblem> {
+    const [problem] = await this.db.insert(gameProblems).values(insertProblem).returning();
+    return problem;
+  }
+
+  async getGameProblem(id: string): Promise<GameProblem | undefined> {
+    const [problem] = await this.db.select().from(gameProblems).where(eq(gameProblems.id, id));
+    return problem;
+  }
+
+  async createGameSession(insertSession: InsertGameSession): Promise<GameSession> {
+    const [session] = await this.db.insert(gameSessions).values(insertSession).returning();
+    return session;
+  }
+
+  async getGameSession(id: string): Promise<GameSession | undefined> {
+    const [session] = await this.db.select().from(gameSessions).where(eq(gameSessions.id, id));
+    return session;
+  }
+
+  async updateGameSession(id: string, updates: Partial<GameSession>): Promise<GameSession | undefined> {
+    const [session] = await this.db.update(gameSessions)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(gameSessions.id, id))
+      .returning();
+    return session;
+  }
+
+  async getOrCreateDefaultSession(): Promise<GameSession> {
+    let [session] = await this.db.select().from(gameSessions).where(eq(gameSessions.id, this.defaultSessionId));
+    
+    if (!session) {
+      [session] = await this.db.insert(gameSessions).values({
+        id: this.defaultSessionId,
+        score: 0,
+        streak: 0,
+        bestStreak: 0,
+        correctAnswers: 0,
+        totalQuestions: 0,
+        difficulty: "easy",
+        soundEnabled: true,
+        questionsPerSession: 10,
+        timerEnabled: false,
+        timerSeconds: 30,
+      }).returning();
+    }
+    
+    return session;
+  }
+
+  async createAchievement(insertAchievement: InsertAchievement): Promise<Achievement> {
+    const [achievement] = await this.db.insert(achievements).values(insertAchievement).returning();
+    return achievement;
+  }
+
+  async getAchievementsBySession(sessionId: string): Promise<Achievement[]> {
+    return await this.db.select().from(achievements).where(eq(achievements.sessionId, sessionId));
+  }
+
+  async createTutoringSession(insertSession: InsertTutoringSession): Promise<TutoringSession> {
+    const [session] = await this.db.insert(tutoringSessions).values(insertSession).returning();
+    return session;
+  }
+
+  async getTutoringSession(id: string): Promise<TutoringSession | undefined> {
+    const [session] = await this.db.select().from(tutoringSessions).where(eq(tutoringSessions.id, id));
+    return session;
+  }
+
+  async getAllTutoringSessions(): Promise<TutoringSession[]> {
+    return await this.db.select().from(tutoringSessions).orderBy(desc(tutoringSessions.date));
+  }
+
+  async updateTutoringSession(id: string, updates: Partial<TutoringSession>): Promise<TutoringSession | undefined> {
+    const [session] = await this.db.update(tutoringSessions)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(tutoringSessions.id, id))
+      .returning();
+    return session;
+  }
+
+  async deleteTutoringSession(id: string): Promise<boolean> {
+    const result = await this.db.delete(tutoringSessions).where(eq(tutoringSessions.id, id)).returning();
+    return result.length > 0;
+  }
+}
+
+export const storage = process.env.DATABASE_URL ? new DbStorage() : new MemStorage();

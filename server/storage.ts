@@ -1,4 +1,4 @@
-import { type GameProblem, type InsertGameProblem, type GameSession, type InsertGameSession, type Achievement, type InsertAchievement } from "@shared/schema";
+import { type GameProblem, type InsertGameProblem, type GameSession, type InsertGameSession, type Achievement, type InsertAchievement, type TutoringSession, type InsertTutoringSession } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -15,18 +15,27 @@ export interface IStorage {
   // Achievements
   createAchievement(achievement: InsertAchievement): Promise<Achievement>;
   getAchievementsBySession(sessionId: string): Promise<Achievement[]>;
+  
+  // Tutoring Sessions
+  createTutoringSession(session: InsertTutoringSession): Promise<TutoringSession>;
+  getTutoringSession(id: string): Promise<TutoringSession | undefined>;
+  getAllTutoringSessions(): Promise<TutoringSession[]>;
+  updateTutoringSession(id: string, updates: Partial<TutoringSession>): Promise<TutoringSession | undefined>;
+  deleteTutoringSession(id: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
   private problems: Map<string, GameProblem>;
   private sessions: Map<string, GameSession>;
   private achievements: Map<string, Achievement>;
+  private tutoringSessions: Map<string, TutoringSession>;
   private defaultSessionId: string;
 
   constructor() {
     this.problems = new Map();
     this.sessions = new Map();
     this.achievements = new Map();
+    this.tutoringSessions = new Map();
     this.defaultSessionId = randomUUID();
     
     // Create default session
@@ -124,6 +133,51 @@ export class MemStorage implements IStorage {
     return Array.from(this.achievements.values()).filter(
       (achievement) => achievement.sessionId === sessionId
     );
+  }
+
+  async createTutoringSession(insertSession: InsertTutoringSession): Promise<TutoringSession> {
+    const id = randomUUID();
+    const session: TutoringSession = {
+      id,
+      weekNumber: insertSession.weekNumber,
+      date: insertSession.date,
+      studentName: insertSession.studentName,
+      topicsCovered: insertSession.topicsCovered,
+      notes: insertSession.notes ?? null,
+      duration: insertSession.duration,
+      status: insertSession.status ?? "scheduled",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.tutoringSessions.set(id, session);
+    return session;
+  }
+
+  async getTutoringSession(id: string): Promise<TutoringSession | undefined> {
+    return this.tutoringSessions.get(id);
+  }
+
+  async getAllTutoringSessions(): Promise<TutoringSession[]> {
+    return Array.from(this.tutoringSessions.values()).sort((a, b) => 
+      b.date.getTime() - a.date.getTime()
+    );
+  }
+
+  async updateTutoringSession(id: string, updates: Partial<TutoringSession>): Promise<TutoringSession | undefined> {
+    const session = this.tutoringSessions.get(id);
+    if (!session) return undefined;
+    
+    const updatedSession: TutoringSession = {
+      ...session,
+      ...updates,
+      updatedAt: new Date(),
+    };
+    this.tutoringSessions.set(id, updatedSession);
+    return updatedSession;
+  }
+
+  async deleteTutoringSession(id: string): Promise<boolean> {
+    return this.tutoringSessions.delete(id);
   }
 }
 

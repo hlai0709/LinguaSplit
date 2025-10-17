@@ -2,8 +2,21 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertGameSessionSchema, insertTutoringSessionSchema } from "@shared/schema";
+import { setupAuth, isAuthenticated, isAdmin } from "./replitAuth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  await setupAuth(app);
+
+  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
   // Generate a new multiplication problem
   app.get("/api/problem/:difficulty", async (req, res) => {
     try {
@@ -57,16 +70,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Check answer and update session
-  app.post("/api/check-answer", async (req, res) => {
+  app.post("/api/check-answer", isAuthenticated, async (req: any, res) => {
     try {
       const { problemId, selectedAnswer } = req.body;
+      const userId = req.user.claims.sub;
       
       const problem = await storage.getGameProblem(problemId);
       if (!problem) {
         return res.status(404).json({ message: "Problem not found" });
       }
       
-      const session = await storage.getOrCreateDefaultSession();
+      const session = await storage.getOrCreateDefaultSession(userId);
       const isCorrect = selectedAnswer === problem.correctAnswer;
       
       let newStreak = isCorrect ? session.streak + 1 : 0;
@@ -100,9 +114,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get current session
-  app.get("/api/session", async (req, res) => {
+  app.get("/api/session", isAuthenticated, async (req: any, res) => {
     try {
-      const session = await storage.getOrCreateDefaultSession();
+      const userId = req.user.claims.sub;
+      const session = await storage.getOrCreateDefaultSession(userId);
       const achievements = await storage.getAchievementsBySession(session.id);
       res.json({ session, achievements });
     } catch (error) {
@@ -111,9 +126,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update session settings
-  app.patch("/api/session", async (req, res) => {
+  app.patch("/api/session", isAuthenticated, async (req: any, res) => {
     try {
-      const session = await storage.getOrCreateDefaultSession();
+      const userId = req.user.claims.sub;
+      const session = await storage.getOrCreateDefaultSession(userId);
       const updatedSession = await storage.updateGameSession(session.id, req.body);
       res.json(updatedSession);
     } catch (error) {
@@ -122,9 +138,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Reset progress
-  app.post("/api/reset", async (req, res) => {
+  app.post("/api/reset", isAuthenticated, async (req: any, res) => {
     try {
-      const session = await storage.getOrCreateDefaultSession();
+      const userId = req.user.claims.sub;
+      const session = await storage.getOrCreateDefaultSession(userId);
       const resetSession = await storage.updateGameSession(session.id, {
         score: 0,
         streak: 0,
@@ -176,21 +193,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return newAchievements;
   }
 
-  // Tutoring session routes
-  app.get("/api/tutoring-sessions", async (req, res) => {
+  // Admin routes
+  app.get("/api/admin/users", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  app.get("/api/admin/tutoring-sessions", isAuthenticated, isAdmin, async (req: any, res) => {
     try {
       const sessions = await storage.getAllTutoringSessions();
+      res.json(sessions);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch all tutoring sessions" });
+    }
+  });
+
+  // Tutoring session routes
+  app.get("/api/tutoring-sessions", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const sessions = await storage.getAllTutoringSessions(userId);
       res.json(sessions);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch tutoring sessions" });
     }
   });
 
-  app.get("/api/tutoring-sessions/:id", async (req, res) => {
+  app.get("/api/tutoring-sessions/:id", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const session = await storage.getTutoringSession(req.params.id);
       if (!session) {
         return res.status(404).json({ message: "Tutoring session not found" });
+      }
+      if (session.userId !== userId) {
+        return res.status(403).json({ message: "Forbidden: Access denied" });
       }
       res.json(session);
     } catch (error) {
@@ -198,8 +239,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/tutoring-sessions", async (req, res) => {
+  app.post("/api/tutoring-sessions", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const data = {
         ...req.body,
         date: req.body.date ? new Date(req.body.date) : undefined,
@@ -207,7 +249,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("Received data:", JSON.stringify(req.body, null, 2));
       console.log("Transformed data:", JSON.stringify(data, null, 2));
       const validatedData = insertTutoringSessionSchema.parse(data);
-      const session = await storage.createTutoringSession(validatedData);
+      const session = await storage.createTutoringSession(validatedData, userId);
       res.status(201).json(session);
     } catch (error) {
       console.error("Validation error:", error);
@@ -215,28 +257,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/tutoring-sessions/:id", async (req, res) => {
+  app.patch("/api/tutoring-sessions/:id", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
+      const existing = await storage.getTutoringSession(req.params.id);
+      if (!existing) {
+        return res.status(404).json({ message: "Tutoring session not found" });
+      }
+      if (existing.userId !== userId) {
+        return res.status(403).json({ message: "Forbidden: Access denied" });
+      }
       const data = {
         ...req.body,
         date: req.body.date ? new Date(req.body.date) : undefined,
       };
       const session = await storage.updateTutoringSession(req.params.id, data);
-      if (!session) {
-        return res.status(404).json({ message: "Tutoring session not found" });
-      }
       res.json(session);
     } catch (error) {
       res.status(500).json({ message: "Failed to update tutoring session" });
     }
   });
 
-  app.delete("/api/tutoring-sessions/:id", async (req, res) => {
+  app.delete("/api/tutoring-sessions/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const deleted = await storage.deleteTutoringSession(req.params.id);
-      if (!deleted) {
+      const userId = req.user.claims.sub;
+      const existing = await storage.getTutoringSession(req.params.id);
+      if (!existing) {
         return res.status(404).json({ message: "Tutoring session not found" });
       }
+      if (existing.userId !== userId) {
+        return res.status(403).json({ message: "Forbidden: Access denied" });
+      }
+      const deleted = await storage.deleteTutoringSession(req.params.id);
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ message: "Failed to delete tutoring session" });

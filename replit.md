@@ -10,6 +10,25 @@ Preferred communication style: Simple, everyday language.
 
 ## System Architecture
 
+### Authentication
+
+**Replit Auth Integration:**
+- OpenID Connect authentication via Replit Auth
+- Supports login with Google, GitHub, X, Apple, and email/password
+- Session-based authentication with PostgreSQL session storage
+- JWT tokens with automatic refresh for seamless user experience
+
+**User Roles:**
+- Regular users: Can access games and manage their own tutoring sessions
+- Admin users: Can view all users and all tutoring sessions via admin dashboard
+- Role-based access control with isAdmin middleware protecting admin routes
+
+**Security:**
+- All routes protected with isAuthenticated middleware
+- Admin routes additionally protected with isAdmin middleware
+- User data scoped to authenticated user (users only see their own data)
+- Proper 401/403 error handling with unauthorized/forbidden responses
+
 ### Frontend Architecture
 
 **Technology Stack:**
@@ -23,8 +42,9 @@ Preferred communication style: Simple, everyday language.
 
 **Component Structure:**
 - Single-page application with route-based navigation
+- Authentication-aware routing (landing page for logged-out users, protected routes for authenticated users)
 - Modular game components organized by feature (game logic, UI elements, settings)
-- Custom hooks for mobile detection and toast notifications
+- Custom hooks for authentication state and user information
 - Centralized query client for API communication with configurable error handling
 - CSS variables for theming with support for dark mode
 
@@ -33,6 +53,12 @@ Preferred communication style: Simple, everyday language.
 - Client-side state management through React Query reduces complexity
 - Path aliases (@/, @shared/) for cleaner imports and better organization
 - Framer Motion provides engaging user feedback for correct/incorrect answers
+- Authentication-first design: all features require login for data persistence and user tracking
+
+**Authentication Pages:**
+- Landing page: Public page with app overview and login button
+- Protected pages: Home, Games, Tutoring sessions (user-specific data)
+- Admin dashboard: Shows all users and their tutoring sessions (admin-only)
 
 ### Backend Architecture
 
@@ -45,19 +71,35 @@ Preferred communication style: Simple, everyday language.
 
 **API Design:**
 - RESTful endpoints for problem generation and game session management
+- All routes protected with authentication middleware
 - Route structure:
-  - `GET /api/problem/:difficulty` - Generate multiplication problems with answer options
-  - `POST /api/session/answer` - Submit answers and update session state
-  - `GET /api/session` - Retrieve current session and achievements
-  - `PUT /api/session/settings` - Update user preferences
-  - `POST /api/session/reset` - Reset progress
+  - Authentication:
+    - `GET /api/login` - Initiate Replit Auth login flow
+    - `GET /api/callback` - OAuth callback handler
+    - `GET /api/logout` - Logout and end session
+    - `GET /api/auth/user` - Get current authenticated user
+  - Games (user-specific):
+    - `GET /api/problem/:difficulty` - Generate multiplication problems
+    - `POST /api/check-answer` - Submit answers and update user's session
+    - `GET /api/session` - Retrieve current user's session and achievements
+    - `PATCH /api/session` - Update user's session settings
+    - `POST /api/reset` - Reset user's progress
+  - Tutoring (user-specific):
+    - `GET /api/tutoring-sessions` - Get user's tutoring sessions
+    - `POST /api/tutoring-sessions` - Create new tutoring session for user
+    - `PATCH /api/tutoring-sessions/:id` - Update tutoring session
+    - `DELETE /api/tutoring-sessions/:id` - Delete tutoring session
+  - Admin (admin-only):
+    - `GET /api/admin/users` - Get all users
+    - `GET /api/admin/tutoring-sessions` - Get all tutoring sessions
 
 **Storage Architecture:**
 - Interface-based storage layer (`IStorage`) allows switching between implementations
 - `DbStorage` class provides persistent database storage using Drizzle ORM with PostgreSQL (Neon serverless)
 - Automatically switches between DbStorage and MemStorage based on DATABASE_URL environment variable
-- All tutoring sessions, game sessions, and achievements persist across page refreshes and server restarts
-- Default session pattern ensures single-user experience without authentication
+- All tutoring sessions, game sessions, achievements, and user data persist across page refreshes and server restarts
+- User-scoped data: Each user has their own game sessions and tutoring sessions
+- Admin users can view all data via dedicated admin endpoints
 
 **Problem Generation Logic:**
 - Difficulty-based number ranges (easy: 1-5, medium: 1-10, hard: 1-12, expert: 1-20)
@@ -67,20 +109,26 @@ Preferred communication style: Simple, everyday language.
 ### Database Schema
 
 **Tables:**
-- `game_problems`: Stores generated multiplication problems with answer options
-- `game_sessions`: Tracks user progress, scores, streaks, and settings
-- `achievements`: Records unlocked achievements linked to sessions
+- `sessions`: Express session storage for authentication (managed by connect-pg-simple)
+- `users`: User accounts with profile information and admin flag
+- `game_sessions`: User-specific game progress, scores, streaks, and settings
+- `tutoring_sessions`: User-specific tutoring session schedules and notes
+- `game_problems`: Generated multiplication problems with answer options
+- `achievements`: Unlocked achievements linked to game sessions
 
 **Key Fields:**
-- Sessions maintain score, current/best streak, correct answers, and total questions
-- Configurable settings: difficulty, sound, questions per session, timer preferences
-- Achievement system with title, description, icon, and color attributes
+- Users: id, email, firstName, lastName, profileImageUrl, isAdmin, createdAt, updatedAt
+- Game sessions: userId (foreign key), score, current/best streak, correct answers, settings
+- Tutoring sessions: userId (foreign key), weekNumber, date, studentName, topics, duration, status
+- Achievements: sessionId (foreign key), title, description, icon, color
 
 **Design Rationale:**
 - UUID-based primary keys for distributed scalability
 - Timestamp tracking for created/updated records
-- Array type for storing answer options efficiently
-- Foreign key relationship between achievements and sessions
+- Array type for storing answer options and topics efficiently
+- Foreign key relationships: game_sessions → users, tutoring_sessions → users, achievements → game_sessions
+- isAdmin boolean flag for role-based access control
+- User data isolation through userId foreign keys
 
 ### External Dependencies
 
@@ -101,8 +149,11 @@ Preferred communication style: Simple, everyday language.
 - TSX for TypeScript execution in development
 
 **Session Management:**
-- `connect-pg-simple` for PostgreSQL-backed session storage (installed but not actively used)
-- Express session middleware for potential authentication features
+- `connect-pg-simple` for PostgreSQL-backed session storage
+- Express session middleware with Replit Auth integration
+- OpenID Client for OAuth 2.0/OIDC authentication
+- Passport.js with OpenID Connect strategy
+- Memoizee for OIDC configuration caching
 
 **Form Handling:**
 - React Hook Form with Zod resolvers for type-safe form validation
@@ -112,7 +163,10 @@ Preferred communication style: Simple, everyday language.
 - date-fns for date manipulation and formatting
 
 **Development Approach:**
-- The application currently uses a default session pattern without authentication
-- Storage layer abstraction allows easy migration from in-memory to database persistence
+- Multi-user application with Replit Auth for authentication
+- User-scoped data ensures privacy and data isolation
+- Storage layer abstraction allows switching between in-memory and database persistence
 - Shared schema types between frontend and backend ensure type consistency
-- The architecture supports future addition of user authentication and multi-user features
+- Role-based access control for admin features
+- Landing page for unauthenticated users with sign-in flow
+- Protected routes require authentication to access

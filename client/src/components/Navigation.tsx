@@ -1,14 +1,22 @@
 import { Link, useLocation } from "wouter";
-import { Home, Gamepad2, BookOpen } from "lucide-react";
+import { Home, Gamepad2, BookOpen, Users, LogOut } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Navigation() {
   const [location] = useLocation();
+  const { user } = useAuth();
 
   const navItems = [
     { path: "/", label: "Home", icon: Home },
     { path: "/games", label: "Games", icon: Gamepad2 },
     { path: "/tutoring", label: "Tutoring", icon: BookOpen },
+    ...(user?.isAdmin ? [{ path: "/admin", label: "Admin", icon: Users }] : []),
   ];
+
+  const handleLogout = () => {
+    window.location.href = "/api/logout";
+  };
 
   return (
     <nav className="bg-card shadow-md border-b border-border sticky top-0 z-50 backdrop-blur-xl bg-card/95">
@@ -46,6 +54,17 @@ export default function Navigation() {
                 </Link>
               );
             })}
+            
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleLogout}
+              className="flex items-center gap-2"
+              data-testid="button-logout"
+            >
+              <LogOut className="w-4 h-4" />
+              <span className="hidden sm:inline">Logout</span>
+            </Button>
           </div>
         </div>
       </div>

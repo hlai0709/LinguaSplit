@@ -1,7 +1,28 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, boolean, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, boolean, timestamp, jsonb, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+
+export const sessions = pgTable(
+  "sessions",
+  {
+    sid: varchar("sid").primaryKey(),
+    sess: jsonb("sess").notNull(),
+    expire: timestamp("expire").notNull(),
+  },
+  (table) => [index("IDX_session_expire").on(table.expire)],
+);
+
+export const users = pgTable("users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: varchar("email").unique(),
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  profileImageUrl: varchar("profile_image_url"),
+  isAdmin: boolean("is_admin").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
 
 export const gameProblems = pgTable("game_problems", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -15,6 +36,7 @@ export const gameProblems = pgTable("game_problems", {
 
 export const gameSessions = pgTable("game_sessions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
   score: integer("score").default(0).notNull(),
   streak: integer("streak").default(0).notNull(),
   bestStreak: integer("best_streak").default(0).notNull(),
@@ -41,13 +63,14 @@ export const achievements = pgTable("achievements", {
 
 export const tutoringSessions = pgTable("tutoring_sessions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
   weekNumber: integer("week_number").notNull(),
   date: timestamp("date").notNull(),
   studentName: text("student_name").notNull(),
   topicsCovered: text("topics_covered").array().notNull(),
   notes: text("notes"),
-  duration: integer("duration").notNull(), // in minutes
-  status: text("status").notNull().default("scheduled"), // scheduled, completed, cancelled
+  duration: integer("duration").notNull(),
+  status: text("status").notNull().default("scheduled"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -59,6 +82,7 @@ export const insertGameProblemSchema = createInsertSchema(gameProblems).omit({
 
 export const insertGameSessionSchema = createInsertSchema(gameSessions).omit({
   id: true,
+  userId: true,
   createdAt: true,
   updatedAt: true,
 });
@@ -70,10 +94,13 @@ export const insertAchievementSchema = createInsertSchema(achievements).omit({
 
 export const insertTutoringSessionSchema = createInsertSchema(tutoringSessions).omit({
   id: true,
+  userId: true,
   createdAt: true,
   updatedAt: true,
 });
 
+export type User = typeof users.$inferSelect;
+export type UpsertUser = typeof users.$inferInsert;
 export type GameProblem = typeof gameProblems.$inferSelect;
 export type InsertGameProblem = z.infer<typeof insertGameProblemSchema>;
 export type GameSession = typeof gameSessions.$inferSelect;

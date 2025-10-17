@@ -1,28 +1,33 @@
-import { type GameProblem, type InsertGameProblem, type GameSession, type InsertGameSession, type Achievement, type InsertAchievement, type TutoringSession, type InsertTutoringSession, gameProblems, gameSessions, achievements, tutoringSessions } from "@shared/schema";
+import { type GameProblem, type InsertGameProblem, type GameSession, type InsertGameSession, type Achievement, type InsertAchievement, type TutoringSession, type InsertTutoringSession, type User, type UpsertUser, gameProblems, gameSessions, achievements, tutoringSessions, users } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
 import { eq, desc } from "drizzle-orm";
 
 export interface IStorage {
+  // User operations
+  getUser(id: string): Promise<User | undefined>;
+  upsertUser(user: UpsertUser): Promise<User>;
+  getAllUsers(): Promise<User[]>;
+  
   // Game Problems
   createGameProblem(problem: InsertGameProblem): Promise<GameProblem>;
   getGameProblem(id: string): Promise<GameProblem | undefined>;
   
   // Game Sessions
-  createGameSession(session: InsertGameSession): Promise<GameSession>;
+  createGameSession(session: InsertGameSession, userId: string): Promise<GameSession>;
   getGameSession(id: string): Promise<GameSession | undefined>;
   updateGameSession(id: string, updates: Partial<GameSession>): Promise<GameSession | undefined>;
-  getOrCreateDefaultSession(): Promise<GameSession>;
+  getOrCreateDefaultSession(userId: string): Promise<GameSession>;
   
   // Achievements
   createAchievement(achievement: InsertAchievement): Promise<Achievement>;
   getAchievementsBySession(sessionId: string): Promise<Achievement[]>;
   
   // Tutoring Sessions
-  createTutoringSession(session: InsertTutoringSession): Promise<TutoringSession>;
+  createTutoringSession(session: InsertTutoringSession, userId: string): Promise<TutoringSession>;
   getTutoringSession(id: string): Promise<TutoringSession | undefined>;
-  getAllTutoringSessions(): Promise<TutoringSession[]>;
+  getAllTutoringSessions(userId?: string): Promise<TutoringSession[]>;
   updateTutoringSession(id: string, updates: Partial<TutoringSession>): Promise<TutoringSession | undefined>;
   deleteTutoringSession(id: string): Promise<boolean>;
 }
@@ -32,32 +37,37 @@ export class MemStorage implements IStorage {
   private sessions: Map<string, GameSession>;
   private achievements: Map<string, Achievement>;
   private tutoringSessions: Map<string, TutoringSession>;
-  private defaultSessionId: string;
+  private users: Map<string, User>;
 
   constructor() {
     this.problems = new Map();
     this.sessions = new Map();
     this.achievements = new Map();
     this.tutoringSessions = new Map();
-    this.defaultSessionId = randomUUID();
-    
-    // Create default session
-    const defaultSession: GameSession = {
-      id: this.defaultSessionId,
-      score: 0,
-      streak: 0,
-      bestStreak: 0,
-      correctAnswers: 0,
-      totalQuestions: 0,
-      difficulty: "easy",
-      soundEnabled: true,
-      questionsPerSession: 10,
-      timerEnabled: false,
-      timerSeconds: 30,
-      createdAt: new Date(),
+    this.users = new Map();
+  }
+
+  async getUser(id: string): Promise<User | undefined> {
+    return this.users.get(id);
+  }
+
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const existing = this.users.get(userData.id!);
+    const user: User = {
+      id: userData.id || randomUUID(),
+      email: userData.email || null,
+      firstName: userData.firstName || null,
+      lastName: userData.lastName || null,
+      profileImageUrl: userData.profileImageUrl || null,
+      createdAt: existing?.createdAt || new Date(),
       updatedAt: new Date(),
     };
-    this.sessions.set(this.defaultSessionId, defaultSession);
+    this.users.set(user.id, user);
+    return user;
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return Array.from(this.users.values());
   }
 
   async createGameProblem(insertProblem: InsertGameProblem): Promise<GameProblem> {
@@ -75,10 +85,11 @@ export class MemStorage implements IStorage {
     return this.problems.get(id);
   }
 
-  async createGameSession(insertSession: InsertGameSession): Promise<GameSession> {
+  async createGameSession(insertSession: InsertGameSession, userId: string): Promise<GameSession> {
     const id = randomUUID();
     const session: GameSession = {
       id,
+      userId,
       score: insertSession.score ?? 0,
       streak: insertSession.streak ?? 0,
       bestStreak: insertSession.bestStreak ?? 0,
@@ -113,8 +124,31 @@ export class MemStorage implements IStorage {
     return updatedSession;
   }
 
-  async getOrCreateDefaultSession(): Promise<GameSession> {
-    return this.sessions.get(this.defaultSessionId)!;
+  async getOrCreateDefaultSession(userId: string): Promise<GameSession> {
+    const sessionId = `default-${userId}`;
+    let session = this.sessions.get(sessionId);
+    
+    if (!session) {
+      session = {
+        id: sessionId,
+        userId,
+        score: 0,
+        streak: 0,
+        bestStreak: 0,
+        correctAnswers: 0,
+        totalQuestions: 0,
+        difficulty: "easy",
+        soundEnabled: true,
+        questionsPerSession: 10,
+        timerEnabled: false,
+        timerSeconds: 30,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      this.sessions.set(sessionId, session);
+    }
+    
+    return session;
   }
 
   async createAchievement(insertAchievement: InsertAchievement): Promise<Achievement> {
@@ -138,10 +172,11 @@ export class MemStorage implements IStorage {
     );
   }
 
-  async createTutoringSession(insertSession: InsertTutoringSession): Promise<TutoringSession> {
+  async createTutoringSession(insertSession: InsertTutoringSession, userId: string): Promise<TutoringSession> {
     const id = randomUUID();
     const session: TutoringSession = {
       id,
+      userId,
       weekNumber: insertSession.weekNumber,
       date: insertSession.date,
       studentName: insertSession.studentName,
@@ -160,10 +195,10 @@ export class MemStorage implements IStorage {
     return this.tutoringSessions.get(id);
   }
 
-  async getAllTutoringSessions(): Promise<TutoringSession[]> {
-    return Array.from(this.tutoringSessions.values()).sort((a, b) => 
-      b.date.getTime() - a.date.getTime()
-    );
+  async getAllTutoringSessions(userId?: string): Promise<TutoringSession[]> {
+    const sessions = Array.from(this.tutoringSessions.values());
+    const filtered = userId ? sessions.filter(s => s.userId === userId) : sessions;
+    return filtered.sort((a, b) => b.date.getTime() - a.date.getTime());
   }
 
   async updateTutoringSession(id: string, updates: Partial<TutoringSession>): Promise<TutoringSession | undefined> {
@@ -186,11 +221,34 @@ export class MemStorage implements IStorage {
 
 export class DbStorage implements IStorage {
   private db;
-  private defaultSessionId: string = "default-session";
 
   constructor() {
     const sql = neon(process.env.DATABASE_URL!);
     this.db = drizzle(sql);
+  }
+
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await this.db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const [user] = await this.db
+      .insert(users)
+      .values(userData)
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return user;
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return await this.db.select().from(users);
   }
 
   async createGameProblem(insertProblem: InsertGameProblem): Promise<GameProblem> {
@@ -203,8 +261,8 @@ export class DbStorage implements IStorage {
     return problem;
   }
 
-  async createGameSession(insertSession: InsertGameSession): Promise<GameSession> {
-    const [session] = await this.db.insert(gameSessions).values(insertSession).returning();
+  async createGameSession(insertSession: InsertGameSession, userId: string): Promise<GameSession> {
+    const [session] = await this.db.insert(gameSessions).values({ ...insertSession, userId }).returning();
     return session;
   }
 
@@ -221,12 +279,14 @@ export class DbStorage implements IStorage {
     return session;
   }
 
-  async getOrCreateDefaultSession(): Promise<GameSession> {
-    let [session] = await this.db.select().from(gameSessions).where(eq(gameSessions.id, this.defaultSessionId));
+  async getOrCreateDefaultSession(userId: string): Promise<GameSession> {
+    const sessionId = `default-${userId}`;
+    let [session] = await this.db.select().from(gameSessions).where(eq(gameSessions.id, sessionId));
     
     if (!session) {
       [session] = await this.db.insert(gameSessions).values({
-        id: this.defaultSessionId,
+        id: sessionId,
+        userId,
         score: 0,
         streak: 0,
         bestStreak: 0,
@@ -252,8 +312,8 @@ export class DbStorage implements IStorage {
     return await this.db.select().from(achievements).where(eq(achievements.sessionId, sessionId));
   }
 
-  async createTutoringSession(insertSession: InsertTutoringSession): Promise<TutoringSession> {
-    const [session] = await this.db.insert(tutoringSessions).values(insertSession).returning();
+  async createTutoringSession(insertSession: InsertTutoringSession, userId: string): Promise<TutoringSession> {
+    const [session] = await this.db.insert(tutoringSessions).values({ ...insertSession, userId }).returning();
     return session;
   }
 
@@ -262,7 +322,10 @@ export class DbStorage implements IStorage {
     return session;
   }
 
-  async getAllTutoringSessions(): Promise<TutoringSession[]> {
+  async getAllTutoringSessions(userId?: string): Promise<TutoringSession[]> {
+    if (userId) {
+      return await this.db.select().from(tutoringSessions).where(eq(tutoringSessions.userId, userId)).orderBy(desc(tutoringSessions.date));
+    }
     return await this.db.select().from(tutoringSessions).orderBy(desc(tutoringSessions.date));
   }
 

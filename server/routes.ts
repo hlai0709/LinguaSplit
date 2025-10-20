@@ -5,7 +5,7 @@ import { insertGameSessionSchema, insertTutoringSessionSchema } from "@shared/sc
 import { setupAuth, isAuthenticated, isAdmin } from "./replitAuth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  await setupAuth(app);
+ // await setupAuth(app);
 
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {

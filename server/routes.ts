@@ -2,22 +2,23 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertGameSessionSchema, insertTutoringSessionSchema } from "@shared/schema";
-import { setupAuth, isAuthenticated, isAdmin } from "./replitAuth";
+// import { setupAuth, isAuthenticated, isAdmin } from "./replitAuth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
- // await setupAuth(app);
+  // await setupAuth(app);
 
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+  // Public route for user (skipped for now - returns null for anonymous)
+  app.get('/api/auth/user', async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      res.json(user);
+      // For anonymous testing, return null or basic info
+      res.json(null); // No user for public mode
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
     }
   });
-  // Generate a new multiplication problem
+
+  // Generate a new multiplication problem (public)
   app.get("/api/problem/:difficulty", async (req, res) => {
     try {
       const difficulty = req.params.difficulty;
@@ -69,11 +70,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Check answer and update session
-  app.post("/api/check-answer", isAuthenticated, async (req: any, res) => {
+  // Check answer and update session (public - use anonymous user)
+  app.post("/api/check-answer", async (req: any, res) => {
     try {
       const { problemId, selectedAnswer } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = 'anonymous'; // Fixed for public mode
       
       const problem = await storage.getGameProblem(problemId);
       if (!problem) {
@@ -113,10 +114,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get current session
-  app.get("/api/session", isAuthenticated, async (req: any, res) => {
+  // Get current session (public - anonymous)
+  app.get("/api/session", async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = 'anonymous'; // Fixed for public mode
       const session = await storage.getOrCreateDefaultSession(userId);
       const achievements = await storage.getAchievementsBySession(session.id);
       res.json({ session, achievements });
@@ -125,10 +126,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update session settings
-  app.patch("/api/session", isAuthenticated, async (req: any, res) => {
+  // Update session settings (public - anonymous)
+  app.patch("/api/session", async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = 'anonymous'; // Fixed for public mode
       const session = await storage.getOrCreateDefaultSession(userId);
       const updatedSession = await storage.updateGameSession(session.id, req.body);
       res.json(updatedSession);
@@ -137,10 +138,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Reset progress
-  app.post("/api/reset", isAuthenticated, async (req: any, res) => {
+  // Reset progress (public - anonymous)
+  app.post("/api/reset", async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = 'anonymous'; // Fixed for public mode
       const session = await storage.getOrCreateDefaultSession(userId);
       const resetSession = await storage.updateGameSession(session.id, {
         score: 0,
@@ -193,7 +194,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return newAchievements;
   }
 
-  // Admin routes
+  // Admin routes - commented out for public mode
+  /*
   app.get("/api/admin/users", isAuthenticated, isAdmin, async (req: any, res) => {
     try {
       const users = await storage.getAllUsers();
@@ -211,11 +213,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch all tutoring sessions" });
     }
   });
+  */
 
-  // Tutoring session routes
-  app.get("/api/tutoring-sessions", isAuthenticated, async (req: any, res) => {
+  // Tutoring session routes - public with anonymous user
+  app.get("/api/tutoring-sessions", async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = 'anonymous'; // Fixed for public mode
       const sessions = await storage.getAllTutoringSessions(userId);
       res.json(sessions);
     } catch (error) {
@@ -223,25 +226,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/tutoring-sessions/:id", isAuthenticated, async (req: any, res) => {
+  app.get("/api/tutoring-sessions/:id", async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = 'anonymous'; // Fixed for public mode
       const session = await storage.getTutoringSession(req.params.id);
       if (!session) {
         return res.status(404).json({ message: "Tutoring session not found" });
       }
-      if (session.userId !== userId) {
-        return res.status(403).json({ message: "Forbidden: Access denied" });
-      }
+      // Skip ownership check for public mode
       res.json(session);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch tutoring session" });
     }
   });
 
-  app.post("/api/tutoring-sessions", isAuthenticated, async (req: any, res) => {
+  app.post("/api/tutoring-sessions", async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = 'anonymous'; // Fixed for public mode
       const data = {
         ...req.body,
         date: req.body.date ? new Date(req.body.date) : undefined,
@@ -257,16 +258,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/tutoring-sessions/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/tutoring-sessions/:id", async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = 'anonymous'; // Fixed for public mode
       const existing = await storage.getTutoringSession(req.params.id);
       if (!existing) {
         return res.status(404).json({ message: "Tutoring session not found" });
       }
-      if (existing.userId !== userId) {
-        return res.status(403).json({ message: "Forbidden: Access denied" });
-      }
+      // Skip ownership check for public mode
       const data = {
         ...req.body,
         date: req.body.date ? new Date(req.body.date) : undefined,
@@ -278,16 +277,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/tutoring-sessions/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/tutoring-sessions/:id", async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = 'anonymous'; // Fixed for public mode
       const existing = await storage.getTutoringSession(req.params.id);
       if (!existing) {
         return res.status(404).json({ message: "Tutoring session not found" });
       }
-      if (existing.userId !== userId) {
-        return res.status(403).json({ message: "Forbidden: Access denied" });
-      }
+      // Skip ownership check for public mode
       const deleted = await storage.deleteTutoringSession(req.params.id);
       res.status(204).send();
     } catch (error) {

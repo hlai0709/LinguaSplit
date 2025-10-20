@@ -5,6 +5,7 @@ import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "http";
 import viteConfig from "../vite.config";
 import { nanoid } from "nanoid";
+import cors from "cors";  // Add for API calls from frontend
 
 const viteLogger = createLogger();
 
@@ -52,7 +53,6 @@ export async function setupVite(app: Express, server: Server) {
         "index.html",
       );
 
-      // always reload the index.html file from disk incase it changes
       let template = await fs.promises.readFile(clientTemplate, "utf-8");
       template = template.replace(
         `src="/src/main.tsx"`,
@@ -68,7 +68,9 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  const distPath = path.resolve(import.meta.dirname, "dist/public");  // Fixed: point to built Vite output folder
+  // Fixed path: From bundled dist/index.js, go to project root then dist/public
+  const rootDir = path.resolve(import.meta.dirname, "..");  // /opt/render/project/src
+  const distPath = path.join(rootDir, "dist/public");  // /opt/render/project/src/dist/public
 
   if (!fs.existsSync(distPath)) {
     throw new Error(
@@ -76,9 +78,11 @@ export function serveStatic(app: Express) {
     );
   }
 
+  // Add CORS for frontend API calls (safe for public app)
+  app.use(cors({ origin: '*' }));  // Restrict to domain later: origin: 'https://hayhayhearts.com'
+
   app.use(express.static(distPath));
 
-  // fall through to index.html if the file doesn't exist
   app.use("*", (_req, res) => {
     res.sendFile(path.resolve(distPath, "index.html"));
   });
